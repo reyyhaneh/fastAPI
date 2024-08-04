@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
-from . import models, schemas
+
+from . import models
+from . import schemas
 from typing import List
 
 def get_user(db: Session, user_id: int):
@@ -12,7 +14,7 @@ def get_users(db: Session, skip: int = 0, limit: int = 10, sort_by: str = 'usern
     return db.query(models.User).order_by(getattr(models.User, sort_by)).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
-    db_user = models.User(username=user.username, email=user.email, password=user.password)
+    db_user = models.User(username=user.username, email=user.email, password=user.password, role=user.role)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

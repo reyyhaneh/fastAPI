@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from . import models, schemas, crud, auth, dependencies
+from . import auth, crud, dependencies
+from . import schemas
 from .database import engine, Base
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List
@@ -31,6 +32,17 @@ def read_user(user_id: int, db: Session = Depends(dependencies.get_db)):
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
+
+@app.get("/users/me/", response_model=schemas.User)
+def read_users_me(current_user: schemas.User = Depends(dependencies.get_current_active_user)):
+    return current_user
+
+@app.get("/admin/", response_model=List[schemas.User])
+def read_users_admin(skip: int = 0, limit: int = 10, db: Session = Depends(dependencies.get_db),
+                     current_user: schemas.User = Depends(dependencies.get_current_active_admin)):
+    users = crud.get_users(db, skip=skip, limit=limit)
+    return users
+
 
 @app.put("/users/{user_id}", response_model=schemas.User)
 def update_user(user_id: int, user: schemas.UserCreate, db: Session = Depends(dependencies.get_db)):
