@@ -6,11 +6,20 @@ from .database import engine, Base
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List
 from datetime import timedelta
+from .auth import verify_password, create_access_token
 
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+
+def authenticate_user(db: Session, username: str, password: str):
+    user = crud.get_user_by_username(db, username=username)
+    if not user or not verify_password(password, user.password):
+        return False
+    return user
+
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(dependencies.get_db)):
@@ -60,15 +69,16 @@ def delete_user(user_id: int, db: Session = Depends(dependencies.get_db)):
 
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dependencies.get_db)):
-    user = crud.get_user_by_username(db, username=form_data.username)
-    if not user or not auth.verify_password(form_data.password, user.password):
+    user = authenticate_user(db, username=form_data.username, password=form_data.password)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
+    access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
